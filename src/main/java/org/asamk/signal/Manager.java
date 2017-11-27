@@ -588,7 +588,7 @@ class Manager implements Signal {
     @Override
     public void sendGroupMessage(String messageText, List<String> attachments,
                                  byte[] groupId)
-            throws IOException, EncapsulatedExceptions, GroupNotFoundException, AttachmentInvalidException {
+            throws IOException, EncapsulatedExceptions, GroupNotFoundException, NotAGroupMemberException, AttachmentInvalidException {
         final SignalServiceDataMessage.Builder messageBuilder = SignalServiceDataMessage.newBuilder().withBody(messageText);
         if (attachments != null) {
             messageBuilder.withAttachments(getSignalServiceAttachments(attachments));
@@ -612,7 +612,7 @@ class Manager implements Signal {
         sendMessage(messageBuilder, membersSend);
     }
 
-    public void sendQuitGroupMessage(byte[] groupId) throws GroupNotFoundException, IOException, EncapsulatedExceptions {
+    public void sendQuitGroupMessage(byte[] groupId) throws GroupNotFoundException, NotAGroupMemberException, IOException, EncapsulatedExceptions {
         SignalServiceGroup group = SignalServiceGroup.newBuilder(SignalServiceGroup.Type.QUIT)
                 .withId(groupId)
                 .build();
@@ -639,7 +639,7 @@ class Manager implements Signal {
         return buf.toString();
     }
 
-    public byte[] sendUpdateGroupMessage(byte[] groupId, String name, Collection<String> members, String avatarFile) throws IOException, EncapsulatedExceptions, GroupNotFoundException, AttachmentInvalidException {
+    public byte[] sendUpdateGroupMessage(byte[] groupId, String name, Collection<String> members, String avatarFile) throws IOException, EncapsulatedExceptions, GroupNotFoundException, NotAGroupMemberException, AttachmentInvalidException {
         GroupInfo g;
         if (groupId == null) {
             // Create new group
@@ -698,7 +698,7 @@ class Manager implements Signal {
         return g.groupId;
     }
 
-    private void sendUpdateGroupMessage(byte[] groupId, String recipient) throws IOException, EncapsulatedExceptions {
+    private void sendUpdateGroupMessage(byte[] groupId, String recipient) throws GroupNotFoundException, NotAGroupMemberException, AttachmentInvalidException, IOException, EncapsulatedExceptions {
         if (groupId == null) {
             return;
         }
@@ -716,7 +716,7 @@ class Manager implements Signal {
         sendMessage(messageBuilder, membersSend);
     }
 
-    private SignalServiceDataMessage.Builder getGroupUpdateMessageBuilder(GroupInfo g) {
+    private SignalServiceDataMessage.Builder getGroupUpdateMessageBuilder(GroupInfo g) throws AttachmentInvalidException {
         SignalServiceGroup.Builder group = SignalServiceGroup.newBuilder(SignalServiceGroup.Type.UPDATE)
                 .withId(g.groupId)
                 .withName(g.name)
@@ -825,7 +825,7 @@ class Manager implements Signal {
     }
 
     @Override
-    public byte[] updateGroup(byte[] groupId, String name, List<String> members, String avatar) throws IOException, EncapsulatedExceptions, GroupNotFoundException, AttachmentInvalidException {
+    public byte[] updateGroup(byte[] groupId, String name, List<String> members, String avatar) throws IOException, EncapsulatedExceptions, GroupNotFoundException, NotAGroupMemberException, AttachmentInvalidException {
         if (groupId.length == 0) {
             groupId = null;
         }
@@ -1023,8 +1023,10 @@ class Manager implements Signal {
                             sendUpdateGroupMessage(groupInfo.getGroupId(), source);
                         } catch (IOException | EncapsulatedExceptions e) {
                             e.printStackTrace();
-                        } catch (NotAGroupMemberException e) {
+                        } catch (NotAGroupMemberException | GroupNotFoundException e) {
                             // We have left this group, so don't send a group update message
+                        } catch (AttachmentInvalidException e) {
+                            e.printStackTrace();
                         }
                     }
                     break;
@@ -1451,11 +1453,6 @@ class Manager implements Signal {
     private SignalServiceAddress getPushAddress(String number) throws InvalidNumberException {
         String e164number = canonicalizeNumber(number);
         return new SignalServiceAddress(e164number);
-    }
-
-    @Override
-    public boolean isRemote() {
-        return false;
     }
 
     private void sendGroups() throws IOException, UntrustedIdentityException {
