@@ -60,6 +60,7 @@ import java.util.concurrent.TimeoutException;
 public class Main {
 
     private static final TimeZone tzUTC = TimeZone.getTimeZone("UTC");
+    private static final String DEFAULT_CONFIG_DIR = System.getProperty("user.home") + "/.config/signal";
 
     public static void main(String[] args) {
         // Workaround for BKS truststore
@@ -79,24 +80,16 @@ public class Main {
         Manager m;
         Signal ts;
         try {
-            if (ns.getBoolean("dbus") || ns.getBoolean("dbus_system")) {
-                System.err.println("No dbus support");
-                return 1;
-            } else {
-                String settingsPath = ns.getString("config");
-                if (TextUtils.isEmpty(settingsPath)) {
-                    settingsPath = System.getProperty("user.home") + "/.config/signal";
-                }
+            String settingsPath = ns.getString("config");
 
-                m = new Manager(username, settingsPath);
-                ts = m;
-                if (m.userExists()) {
-                    try {
-                        m.init();
-                    } catch (Exception e) {
-                        System.err.println("Error loading state file \"" + m.getFileName() + "\": " + e.getMessage());
-                        return 2;
-                    }
+            m = new Manager(username, settingsPath);
+            ts = m;
+            if (m.userExists()) {
+                try {
+                    m.init();
+                } catch (Exception e) {
+                    System.err.println("Error loading state file \"" + m.getFileName() + "\": " + e.getMessage());
+                    return 2;
                 }
             }
 
@@ -475,14 +468,6 @@ public class Main {
                         }
                     }
                     break;
-                case "daemon":
-                    if (!m.isRegistered()) {
-                        System.err.println("User is not registered.");
-                        return 1;
-                    }
-                    
-                    System.err.println("No daemon support");
-                    return 1;
             }
             return 0;
         } finally {
@@ -541,24 +526,19 @@ public class Main {
     private static Namespace parseArgs(String[] args) {
         ArgumentParser parser = ArgumentParsers.newArgumentParser("signal-cli")
                 .defaultHelp(true)
-                .description("Commandline interface for Signal.")
+                .description("Signal Command-Line Client")
                 .version(Manager.PROJECT_NAME + " " + Manager.PROJECT_VERSION);
 
         parser.addArgument("-v", "--version")
-                .help("Show package version.")
+                .help("Show package version")
                 .action(Arguments.version());
         parser.addArgument("--config")
-                .help("Set the path, where to store the config (Default: $HOME/.config/signal).");
+                .setDefault(DEFAULT_CONFIG_DIR)
+                .help("Set the path, where to store the config");
 
         MutuallyExclusiveGroup mut = parser.addMutuallyExclusiveGroup();
         mut.addArgument("-u", "--username")
-                .help("Specify your phone number, that will be used for verification.");
-        mut.addArgument("--dbus")
-                .help("Make request via user dbus.")
-                .action(Arguments.storeTrue());
-        mut.addArgument("--dbus-system")
-                .help("Make request via system dbus.")
-                .action(Arguments.storeTrue());
+                .help("Specify your phone number, that will be used for verification");
 
         Subparsers subparsers = parser.addSubparsers()
                 .title("subcommands")
@@ -566,106 +546,111 @@ public class Main {
                 .description("valid subcommands")
                 .help("additional help");
 
-        Subparser parserLink = subparsers.addParser("link");
+        Subparser parserLink = subparsers.addParser("link")
+                .help("Register this device as new linked device");
         parserLink.addArgument("-n", "--name")
-                .help("Specify a name to describe this new device.");
+                .help("Specify a name to describe this new device");
 
-        Subparser parserAddDevice = subparsers.addParser("addDevice");
+        Subparser parserAddDevice = subparsers.addParser("addDevice")
+                .help("Add a new linked device");
         parserAddDevice.addArgument("--uri")
                 .required(true)
-                .help("Specify the uri contained in the QR code shown by the new device.");
+                .help("Specify the URI contained in the QR code shown by the new device");
 
-        Subparser parserDevices = subparsers.addParser("listDevices");
+        Subparser parserDevices = subparsers.addParser("listDevices")
+                .help("List registered device IDs");
 
-        Subparser parserRemoveDevice = subparsers.addParser("removeDevice");
+        Subparser parserRemoveDevice = subparsers.addParser("removeDevice")
+                .help("Remove a registered device");
         parserRemoveDevice.addArgument("-d", "--deviceId")
                 .type(int.class)
                 .required(true)
-                .help("Specify the device you want to remove. Use listDevices to see the deviceIds.");
+                .help("Specify the device you want to remove; use listDevices to see the device IDs");
 
-        Subparser parserRegister = subparsers.addParser("register");
+        Subparser parserRegister = subparsers.addParser("register")
+                .help("Register this device as new primary device");
         parserRegister.addArgument("-v", "--voice")
-                .help("The verification should be done over voice, not sms.")
+                .help("Perform verification over voice instead of SMS")
                 .action(Arguments.storeTrue());
 
-        Subparser parserUnregister = subparsers.addParser("unregister");
-        parserUnregister.help("Unregister the current device from the signal server.");
+        Subparser parserUnregister = subparsers.addParser("unregister")
+                .help("Unregister this device from the Signal server");
 
-        Subparser parserUpdateAccount = subparsers.addParser("updateAccount");
-        parserUpdateAccount.help("Update the account attributes on the signal server.");
+        Subparser parserUpdateAccount = subparsers.addParser("updateAccount")
+                .help("Update the account attributes on the Signal server");
 
-        Subparser parserVerify = subparsers.addParser("verify");
+        Subparser parserVerify = subparsers.addParser("verify")
+                .help("Perform the account verification step");
         parserVerify.addArgument("verificationCode")
-                .help("The verification code you received via sms or voice call.");
+                .help("The verification code you received via SMS or voice call");
 
-        Subparser parserSend = subparsers.addParser("send");
+        Subparser parserSend = subparsers.addParser("send")
+                .help("Send a message");
         parserSend.addArgument("-g", "--group")
-                .help("Specify the recipient group ID.");
+                .help("Specify the recipient group ID");
         parserSend.addArgument("recipient")
-                .help("Specify the recipients' phone number.")
+                .help("Specify the recipients' phone number")
                 .nargs("*");
         parserSend.addArgument("-m", "--message")
-                .help("Specify the message, if missing standard input is used.");
+                .help("Specify the message; if absent, message is read from standard input");
         parserSend.addArgument("-a", "--attachment")
                 .nargs("*")
                 .help("Add file as attachment");
         parserSend.addArgument("-e", "--endsession")
-                .help("Clear session state and send end session message.")
+                .help("Clear session state and send end session message")
                 .action(Arguments.storeTrue());
 
-        Subparser parserLeaveGroup = subparsers.addParser("quitGroup");
+        Subparser parserLeaveGroup = subparsers.addParser("quitGroup")
+                .help("Leave a group");
         parserLeaveGroup.addArgument("-g", "--group")
                 .required(true)
-                .help("Specify the recipient group ID.");
+                .help("Specify the recipient group ID");
 
-        Subparser parserUpdateGroup = subparsers.addParser("updateGroup");
+        Subparser parserUpdateGroup = subparsers.addParser("updateGroup")
+                .help("Update a group");
         parserUpdateGroup.addArgument("-g", "--group")
-                .help("Specify the recipient group ID.");
+                .help("Specify the recipient group ID");
         parserUpdateGroup.addArgument("-n", "--name")
-                .help("Specify the new group name.");
+                .help("Specify the new group name");
         parserUpdateGroup.addArgument("-a", "--avatar")
                 .help("Specify a new group avatar image file");
         parserUpdateGroup.addArgument("-m", "--member")
                 .nargs("*")
                 .help("Specify one or more members to add to the group");
 
-        Subparser parserListGroups = subparsers.addParser("listGroups");
+        Subparser parserListGroups = subparsers.addParser("listGroups")
+                .help("List all groups");
         parserListGroups.addArgument("-d", "--detailed").action(Arguments.storeTrue())
                 .help("List members of each group");
-        parserListGroups.help("List group name and ids");
+        parserListGroups.help("List group name and IDs");
 
-        Subparser parserListIdentities = subparsers.addParser("listIdentities");
+        Subparser parserListIdentities = subparsers.addParser("listIdentities")
+                .help("List identities");
         parserListIdentities.addArgument("-n", "--number")
-                .help("Only show identity keys for the given phone number.");
+                .help("Only show identity keys for the given phone number");
 
-        Subparser parserTrust = subparsers.addParser("trust");
+        Subparser parserTrust = subparsers.addParser("trust")
+                .help("Update user trust");
         parserTrust.addArgument("number")
-                .help("Specify the phone number, for which to set the trust.")
+                .help("Specify the phone number, for which to set the trust")
                 .required(true);
         MutuallyExclusiveGroup mutTrust = parserTrust.addMutuallyExclusiveGroup();
         mutTrust.addArgument("-a", "--trust-all-known-keys")
-                .help("Trust all known keys of this user, only use this for testing.")
+                .help("Trust all known keys of this user, only use this for testing")
                 .action(Arguments.storeTrue());
         mutTrust.addArgument("-v", "--verified-fingerprint")
-                .help("Specify the fingerprint of the key, only use this option if you have verified the fingerprint.");
+                .help("Specify the fingerprint of the key, only use this option if you have verified the fingerprint");
 
-        Subparser parserReceive = subparsers.addParser("receive");
+        Subparser parserReceive = subparsers.addParser("receive")
+                .help("Receive messages");
         parserReceive.addArgument("-t", "--timeout")
                 .type(double.class)
                 .help("Number of seconds to wait for new messages (negative values disable timeout)");
         parserReceive.addArgument("--ignore-attachments")
-                .help("Don’t download attachments of received messages.")
+                .help("Don't download attachments of received messages")
                 .action(Arguments.storeTrue());
         parserReceive.addArgument("--json")
-                .help("Output received messages in json format, one json object per line.")
-                .action(Arguments.storeTrue());
-
-        Subparser parserDaemon = subparsers.addParser("daemon");
-        parserDaemon.addArgument("--system")
-                .action(Arguments.storeTrue())
-                .help("Use DBus system bus instead of user bus.");
-        parserDaemon.addArgument("--ignore-attachments")
-                .help("Don’t download attachments of received messages.")
+                .help("Output received messages in json format, one json object per line")
                 .action(Arguments.storeTrue());
 
         try {
@@ -676,7 +661,7 @@ public class Main {
                     System.err.println("You cannot specify a username (phone number) when linking");
                     System.exit(2);
                 }
-            } else if (!ns.getBoolean("dbus") && !ns.getBoolean("dbus_system")) {
+            } else {
                 if (ns.getString("username") == null) {
                     parser.printUsage();
                     System.err.println("You need to specify a username (phone number)");
@@ -688,7 +673,7 @@ public class Main {
                 }
             }
             if (ns.getList("recipient") != null && !ns.getList("recipient").isEmpty() && ns.getString("group") != null) {
-                System.err.println("You cannot specify recipients by phone number and groups a the same time");
+                System.err.println("You cannot specify recipients by phone number and groups at the same time");
                 System.exit(2);
             }
             return ns;
