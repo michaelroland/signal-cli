@@ -16,13 +16,13 @@ import java.util.Map;
 
 public class JsonGroupStore {
     @JsonProperty("groups")
-    @JsonSerialize(using = JsonGroupStore.MapToListSerializer.class)
-    @JsonDeserialize(using = JsonGroupStore.GroupsDeserializer.class)
-    private Map<String, GroupInfo> groups = new HashMap<>();
+    @JsonSerialize(using = MapToListSerializer.class)
+    @JsonDeserialize(using = GroupsDeserializer.class)
+    private final Map<String, GroupInfo> groups = new HashMap<>();
 
     public static List<GroupInfo> groupsWithLegacyAvatarId = new ArrayList<>();
 
-    private static final ObjectMapper jsonProcessor = new ObjectMapper();
+    private static final ObjectMapper JSON_PROCESSOR = new ObjectMapper();
 
     public void updateGroup(GroupInfo group) {
         groups.put(Base64.encodeBytes(group.groupId), group);
@@ -50,7 +50,7 @@ public class JsonGroupStore {
             Map<String, GroupInfo> groups = new HashMap<>();
             JsonNode node = jsonParser.getCodec().readTree(jsonParser);
             for (JsonNode n : node) {
-                GroupInfo g = jsonProcessor.treeToValue(n, GroupInfo.class);
+                GroupInfo g = JSON_PROCESSOR.treeToValue(n, GroupInfo.class);
                 // Check if a legacy avatarId exists
                 if (g.getAvatarId() != 0) {
                     groupsWithLegacyAvatarId.add(g);

@@ -15,10 +15,10 @@ class JsonMessageEnvelope {
     JsonCallMessage callMessage;
 
     public JsonMessageEnvelope(SignalServiceEnvelope envelope, SignalServiceContent content) {
-        SignalServiceAddress source = envelope.getSourceAddress();
-        this.source = source.getNumber();
+        SignalServiceAddress sourceAddress = envelope.getSourceAddress();
+        this.source = sourceAddress.getNumber();
         this.sourceDevice = envelope.getSourceDevice();
-        this.relay = source.getRelay().isPresent() ? source.getRelay().get() : null;
+        this.relay = sourceAddress.getRelay().isPresent() ? sourceAddress.getRelay().get() : null;
         this.timestamp = envelope.getTimestamp();
         this.isReceipt = envelope.isReceipt();
         if (content != null) {

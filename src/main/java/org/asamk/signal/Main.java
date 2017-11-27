@@ -26,7 +26,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.*;
-import org.apache.http.util.TextUtils;
 import org.asamk.Signal;
 import org.asamk.signal.storage.contacts.ContactInfo;
 import org.asamk.signal.storage.groups.GroupInfo;
@@ -59,7 +58,7 @@ import java.util.concurrent.TimeoutException;
 
 public class Main {
 
-    private static final TimeZone tzUTC = TimeZone.getTimeZone("UTC");
+    private static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC");
     private static final String DEFAULT_CONFIG_DIR = System.getProperty("user.home") + "/.config/signal";
 
     public static void main(String[] args) {
@@ -87,7 +86,7 @@ public class Main {
             if (m.userExists()) {
                 try {
                     m.init();
-                } catch (Exception e) {
+                } catch (IOException e) {
                     System.err.println("Error loading state file \"" + m.getFileName() + "\": " + e.getMessage());
                     return 2;
                 }
@@ -169,7 +168,7 @@ public class Main {
                     } catch (InvalidKeyException e) {
                         e.printStackTrace();
                         return 2;
-                    } catch (UserAlreadyExists e) {
+                    } catch (UserAlreadyExistsException e) {
                         System.err.println("The user " + e.getUsername() + " already exists\nDelete \"" + e.getFileName() + "\" before trying again.");
                         return 1;
                     }
@@ -363,7 +362,7 @@ public class Main {
                         }
                         List<String> groupMembers = ns.<String>getList("member");
                         if (groupMembers == null) {
-                            groupMembers = new ArrayList<String>();
+                            groupMembers = new ArrayList<>();
                         }
                         String groupAvatar = ns.getString("avatar");
                         if (groupAvatar == null) {
@@ -439,28 +438,29 @@ public class Main {
                         String fingerprint = ns.getString("verified_fingerprint");
                         if (fingerprint != null) {
                             fingerprint = fingerprint.replaceAll(" ", "");
-                            if (fingerprint.length() == 66) {
-                                byte[] fingerprintBytes;
-                                try {
-                                    fingerprintBytes = Hex.toByteArray(fingerprint.toLowerCase(Locale.ROOT));
-                                } catch (Exception e) {
-                                    System.err.println("Failed to parse the fingerprint, make sure the fingerprint is a correctly encoded hex string without additional characters.");
+                            switch (fingerprint.length()) {
+                                case 66:
+                                    byte[] fingerprintBytes;
+                                    try {
+                                        fingerprintBytes = Hex.toByteArray(fingerprint.toLowerCase(Locale.ROOT));
+                                    } catch (Exception e) {
+                                        System.err.println("Failed to parse the fingerprint, make sure the fingerprint is a correctly encoded hex string without additional characters.");
+                                        return 1;
+                                    }
+                                    if (!m.trustIdentityVerified(number, fingerprintBytes)) {
+                                        System.err.println("Failed to set the trust for the fingerprint of this number, make sure the number and the fingerprint are correct.");
+                                        return 1;
+                                    }
+                                    break;
+                                case 60:
+                                    if (!m.trustIdentityVerifiedSafetyNumber(number, fingerprint)) {
+                                        System.err.println("Failed to set the trust for the safety number of this phone number, make sure the phone number and the safety number are correct.");
+                                        return 1;
+                                    }
+                                    break;
+                                default:
+                                    System.err.println("Fingerprint has invalid format, either specify the old hex fingerprint or the new safety number");
                                     return 1;
-                                }
-                                boolean res = m.trustIdentityVerified(number, fingerprintBytes);
-                                if (!res) {
-                                    System.err.println("Failed to set the trust for the fingerprint of this number, make sure the number and the fingerprint are correct.");
-                                    return 1;
-                                }
-                            } else if (fingerprint.length() == 60) {
-                                boolean res = m.trustIdentityVerifiedSafetyNumber(number, fingerprint);
-                                if (!res) {
-                                    System.err.println("Failed to set the trust for the safety number of this phone number, make sure the phone number and the safety number are correct.");
-                                    return 1;
-                                }
-                            } else {
-                                System.err.println("Fingerprint has invalid format, either specify the old hex fingerprint or the new safety number");
-                                return 1;
                             }
                         } else {
                             System.err.println("You need to specify the fingerprint you have verified with -v FINGERPRINT");
@@ -928,7 +928,7 @@ public class Main {
     private static String formatTimestamp(long timestamp) {
         Date date = new Date(timestamp);
         final DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
-        df.setTimeZone(tzUTC);
+        df.setTimeZone(TIMEZONE_UTC);
         return timestamp + " (" + df.format(date) + ")";
     }
 }

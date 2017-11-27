@@ -91,7 +91,7 @@ class Manager implements Signal {
     private final static String URL = "https://textsecure-service.whispersystems.org";
     private final static String CDN_URL = "https://cdn.signal.org";
     private final static TrustStore TRUST_STORE = new WhisperTrustStore();
-    private final static SignalServiceConfiguration serviceConfiguration = new SignalServiceConfiguration(
+    private final static SignalServiceConfiguration SERVICE_CONFIGURATION = new SignalServiceConfiguration(
             new SignalServiceUrl[]{new SignalServiceUrl(URL, TRUST_STORE)},
             new SignalCdnUrl[]{new SignalCdnUrl(CDN_URL, TRUST_STORE)}
     );
@@ -237,7 +237,7 @@ class Manager implements Signal {
 
         migrateLegacyConfigs();
 
-        accountManager = new SignalServiceAccountManager(serviceConfiguration, username, password, deviceId, USER_AGENT);
+        accountManager = new SignalServiceAccountManager(SERVICE_CONFIGURATION, username, password, deviceId, USER_AGENT);
         try {
             if (registered && accountManager.getPreKeysCount() < PREKEY_MINIMUM_COUNT) {
                 refreshPreKeys();
@@ -308,7 +308,7 @@ class Manager implements Signal {
                     try {
                         createPrivateDirectories(avatarsPath);
                         Files.copy(attachmentFile.toPath(), avatarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    } catch (Exception e) {
+                    } catch (IOException e) {
                         // Ignore
                     }
                 }
@@ -341,7 +341,7 @@ class Manager implements Signal {
             jsonProcessor.writeValue(Channels.newOutputStream(fileChannel), rootNode);
             fileChannel.truncate(fileChannel.position());
             fileChannel.force(false);
-        } catch (Exception e) {
+        } catch (IOException e) {
             System.err.println(String.format("Error saving file: %s", e.getMessage()));
         }
     }
@@ -362,7 +362,7 @@ class Manager implements Signal {
     public void register(boolean voiceVerification) throws IOException {
         password = Util.getSecret(18);
 
-        accountManager = new SignalServiceAccountManager(serviceConfiguration, username, password, USER_AGENT);
+        accountManager = new SignalServiceAccountManager(SERVICE_CONFIGURATION, username, password, USER_AGENT);
 
         if (voiceVerification)
             accountManager.requestVoiceVerificationCode();
@@ -387,7 +387,7 @@ class Manager implements Signal {
     public URI getDeviceLinkUri() throws TimeoutException, IOException {
         password = Util.getSecret(18);
 
-        accountManager = new SignalServiceAccountManager(serviceConfiguration, username, password, USER_AGENT);
+        accountManager = new SignalServiceAccountManager(SERVICE_CONFIGURATION, username, password, USER_AGENT);
         String uuid = accountManager.getNewDeviceUuid();
 
         registered = false;
@@ -399,14 +399,14 @@ class Manager implements Signal {
         }
     }
 
-    public void finishDeviceLink(String deviceName) throws IOException, InvalidKeyException, TimeoutException, UserAlreadyExists {
+    public void finishDeviceLink(String deviceName) throws IOException, InvalidKeyException, TimeoutException, UserAlreadyExistsException {
         signalingKey = Util.getSecret(52);
         SignalServiceAccountManager.NewDeviceRegistrationReturn ret = accountManager.finishNewDeviceRegistration(signalProtocolStore.getIdentityKeyPair(), signalingKey, false, true, signalProtocolStore.getLocalRegistrationId(), deviceName);
         deviceId = ret.getDeviceId();
         username = ret.getNumber();
         // TODO do this check before actually registering
         if (userExists()) {
-            throw new UserAlreadyExists(username, getFileName());
+            throw new UserAlreadyExistsException(username, getFileName());
         }
         signalProtocolStore = new JsonSignalProtocolStore(ret.getIdentity(), signalProtocolStore.getLocalRegistrationId());
 
@@ -676,7 +676,7 @@ class Manager implements Signal {
                     newMembers.remove(contact.getNumber());
                 }
                 System.err.println("Failed to add members " + join(", ", newMembers) + " to group: Not registered on Signal");
-                System.err.println("Aborting…");
+                System.err.println("Aborting...");
                 System.exit(1);
             }
         }
@@ -818,9 +818,9 @@ class Manager implements Signal {
     public List<String> getGroupMembers(byte[] groupId) {
         GroupInfo group = getGroup(groupId);
         if (group == null) {
-            return new ArrayList<String>();
+            return new ArrayList<>();
         } else {
-            return new ArrayList<String>(group.members);
+            return new ArrayList<>(group.members);
         }
     }
 
@@ -832,7 +832,7 @@ class Manager implements Signal {
         if (name.isEmpty()) {
             name = null;
         }
-        if (members.size() == 0) {
+        if (members.isEmpty()) {
             members = null;
         }
         if (avatar.isEmpty()) {
@@ -863,7 +863,7 @@ class Manager implements Signal {
 
     private void sendSyncMessage(SignalServiceSyncMessage message)
             throws IOException, UntrustedIdentityException {
-        SignalServiceMessageSender messageSender = new SignalServiceMessageSender(serviceConfiguration, username, password,
+        SignalServiceMessageSender messageSender = new SignalServiceMessageSender(SERVICE_CONFIGURATION, username, password,
                 deviceId, signalProtocolStore, USER_AGENT, Optional.fromNullable(messagePipe), Optional.<SignalServiceMessageSender.EventListener>absent());
         try {
             messageSender.sendMessage(message);
@@ -880,7 +880,7 @@ class Manager implements Signal {
 
         SignalServiceDataMessage message = null;
         try {
-            SignalServiceMessageSender messageSender = new SignalServiceMessageSender(serviceConfiguration, username, password,
+            SignalServiceMessageSender messageSender = new SignalServiceMessageSender(SERVICE_CONFIGURATION, username, password,
                     deviceId, signalProtocolStore, USER_AGENT, Optional.fromNullable(messagePipe), Optional.<SignalServiceMessageSender.EventListener>absent());
 
             message = messageBuilder.build();
@@ -1021,12 +1021,10 @@ class Manager implements Signal {
                     if (group != null) {
                         try {
                             sendUpdateGroupMessage(groupInfo.getGroupId(), source);
-                        } catch (IOException | EncapsulatedExceptions e) {
+                        } catch (IOException | EncapsulatedExceptions | AttachmentInvalidException e) {
                             e.printStackTrace();
                         } catch (NotAGroupMemberException | GroupNotFoundException e) {
                             // We have left this group, so don't send a group update message
-                        } catch (AttachmentInvalidException e) {
-                            e.printStackTrace();
                         }
                     }
                     break;
@@ -1103,7 +1101,7 @@ class Manager implements Signal {
                 try {
                     Files.delete(fileEntry.toPath());
                 } catch (IOException e) {
-                    System.err.println("Failed to delete cached message file “" + fileEntry + "”: " + e.getMessage());
+                    System.err.println("Failed to delete cached message file \"" + fileEntry + "\": " + e.getMessage());
                 }
             }
             // Try to delete directory if empty
@@ -1113,7 +1111,7 @@ class Manager implements Signal {
 
     public void receiveMessages(long timeout, TimeUnit unit, boolean returnOnTimeout, boolean ignoreAttachments, ReceiveMessageHandler handler) throws IOException {
         retryFailedReceivedMessages(handler, ignoreAttachments);
-        final SignalServiceMessageReceiver messageReceiver = new SignalServiceMessageReceiver(serviceConfiguration, username, password, deviceId, signalingKey, USER_AGENT);
+        final SignalServiceMessageReceiver messageReceiver = new SignalServiceMessageReceiver(SERVICE_CONFIGURATION, username, password, deviceId, signalingKey, USER_AGENT);
 
         try {
             if (messagePipe == null) {
@@ -1281,7 +1279,7 @@ class Manager implements Signal {
                             try {
                                 Files.delete(tmpFile.toPath());
                             } catch (IOException e) {
-                                System.err.println("Failed to delete received contacts temp file “" + tmpFile + "”: " + e.getMessage());
+                                System.err.println("Failed to delete received contacts temp file \"" + tmpFile + "\": " + e.getMessage());
                             }
                         }
                     }
@@ -1415,7 +1413,7 @@ class Manager implements Signal {
             }
         }
 
-        final SignalServiceMessageReceiver messageReceiver = new SignalServiceMessageReceiver(serviceConfiguration, username, password, deviceId, signalingKey, USER_AGENT);
+        final SignalServiceMessageReceiver messageReceiver = new SignalServiceMessageReceiver(SERVICE_CONFIGURATION, username, password, deviceId, signalingKey, USER_AGENT);
 
         File tmpFile = Util.createTempFile();
         try (InputStream input = messageReceiver.retrieveAttachment(pointer, tmpFile, MAX_ATTACHMENT_SIZE)) {
@@ -1441,7 +1439,7 @@ class Manager implements Signal {
     }
 
     private InputStream retrieveAttachmentAsStream(SignalServiceAttachmentPointer pointer, File tmpFile) throws IOException, InvalidMessageException {
-        final SignalServiceMessageReceiver messageReceiver = new SignalServiceMessageReceiver(serviceConfiguration, username, password, deviceId, signalingKey, USER_AGENT);
+        final SignalServiceMessageReceiver messageReceiver = new SignalServiceMessageReceiver(SERVICE_CONFIGURATION, username, password, deviceId, signalingKey, USER_AGENT);
         return messageReceiver.retrieveAttachment(pointer, tmpFile, MAX_ATTACHMENT_SIZE);
     }
 

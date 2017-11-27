@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-class JsonPreKeyStore implements PreKeyStore {
+public class JsonPreKeyStore implements PreKeyStore {
 
     private final Map<Integer, byte[]> store = new HashMap<>();
 
@@ -54,7 +54,7 @@ class JsonPreKeyStore implements PreKeyStore {
         store.remove(preKeyId);
     }
 
-    public static class JsonPreKeyStoreDeserializer extends JsonDeserializer<JsonPreKeyStore> {
+    public static class Deserializer extends JsonDeserializer<JsonPreKeyStore> {
 
         @Override
         public JsonPreKeyStore deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
@@ -81,7 +81,7 @@ class JsonPreKeyStore implements PreKeyStore {
         }
     }
 
-    public static class JsonPreKeyStoreSerializer extends JsonSerializer<JsonPreKeyStore> {
+    public static class Serializer extends JsonSerializer<JsonPreKeyStore> {
 
         @Override
         public void serialize(JsonPreKeyStore jsonPreKeyStore, JsonGenerator json, SerializerProvider serializerProvider) throws IOException, JsonProcessingException {

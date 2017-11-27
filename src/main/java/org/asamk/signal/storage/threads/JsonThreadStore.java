@@ -15,11 +15,11 @@ import java.util.Map;
 
 public class JsonThreadStore {
     @JsonProperty("threads")
-    @JsonSerialize(using = JsonThreadStore.MapToListSerializer.class)
+    @JsonSerialize(using = MapToListSerializer.class)
     @JsonDeserialize(using = ThreadsDeserializer.class)
-    private Map<String, ThreadInfo> threads = new HashMap<>();
+    private final Map<String, ThreadInfo> threads = new HashMap<>();
 
-    private static final ObjectMapper jsonProcessor = new ObjectMapper();
+    private static final ObjectMapper JSON_PROCESSOR = new ObjectMapper();
 
     public void updateThread(ThreadInfo thread) {
         threads.put(thread.id, thread);
@@ -46,7 +46,7 @@ public class JsonThreadStore {
             Map<String, ThreadInfo> threads = new HashMap<>();
             JsonNode node = jsonParser.getCodec().readTree(jsonParser);
             for (JsonNode n : node) {
-                ThreadInfo t = jsonProcessor.treeToValue(n, ThreadInfo.class);
+                ThreadInfo t = JSON_PROCESSOR.treeToValue(n, ThreadInfo.class);
                 threads.put(t.id, t);
             }
 

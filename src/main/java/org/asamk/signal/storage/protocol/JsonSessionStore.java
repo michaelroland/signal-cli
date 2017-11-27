@@ -12,7 +12,7 @@ import org.whispersystems.signalservice.internal.util.Base64;
 import java.io.IOException;
 import java.util.*;
 
-class JsonSessionStore implements SessionStore {
+public class JsonSessionStore implements SessionStore {
 
     private final Map<SignalProtocolAddress, byte[]> sessions = new HashMap<>();
 
@@ -76,7 +76,7 @@ class JsonSessionStore implements SessionStore {
         }
     }
 
-    public static class JsonSessionStoreDeserializer extends JsonDeserializer<JsonSessionStore> {
+    public static class Deserializer extends JsonDeserializer<JsonSessionStore> {
 
         @Override
         public JsonSessionStore deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
@@ -102,7 +102,7 @@ class JsonSessionStore implements SessionStore {
         }
     }
 
-    public static class JsonPreKeyStoreSerializer extends JsonSerializer<JsonSessionStore> {
+    public static class Serializer extends JsonSerializer<JsonSessionStore> {
 
         @Override
         public void serialize(JsonSessionStore jsonSessionStore, JsonGenerator json, SerializerProvider serializerProvider) throws IOException, JsonProcessingException {

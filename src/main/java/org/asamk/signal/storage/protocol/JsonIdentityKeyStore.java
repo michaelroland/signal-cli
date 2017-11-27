@@ -50,6 +50,7 @@ public class JsonIdentityKeyStore implements IdentityKeyStore {
      * @param identityKey The user's public key
      * @param trustLevel
      * @param added       Added timestamp, if null and the key is newly added, the current time is used.
+     * @return Returns true on success.
      */
     public boolean saveIdentity(String name, IdentityKey identityKey, TrustLevel trustLevel, Date added) {
         List<Identity> identities = trustedKeys.get(name);
@@ -102,7 +103,7 @@ public class JsonIdentityKeyStore implements IdentityKeyStore {
         return trustedKeys.get(name);
     }
 
-    public static class JsonIdentityKeyStoreDeserializer extends JsonDeserializer<JsonIdentityKeyStore> {
+    public static class Deserializer extends JsonDeserializer<JsonIdentityKeyStore> {
 
         @Override
         public JsonIdentityKeyStore deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
@@ -137,7 +138,7 @@ public class JsonIdentityKeyStore implements IdentityKeyStore {
         }
     }
 
-    public static class JsonIdentityKeyStoreSerializer extends JsonSerializer<JsonIdentityKeyStore> {
+    public static class Serializer extends JsonSerializer<JsonIdentityKeyStore> {
 
         @Override
         public void serialize(JsonIdentityKeyStore jsonIdentityKeyStore, JsonGenerator json, SerializerProvider serializerProvider) throws IOException, JsonProcessingException {

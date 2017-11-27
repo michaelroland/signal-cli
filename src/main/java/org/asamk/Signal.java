@@ -28,11 +28,11 @@ public interface Signal {
     byte[] updateGroup(byte[] groupId, String name, List<String> members, String avatar) throws IOException, EncapsulatedExceptions, GroupNotFoundException, NotAGroupMemberException, AttachmentInvalidException;
 
     class MessageReceived {
-        private long timestamp;
-        private String sender;
-        private byte[] groupId;
-        private String message;
-        private List<String> attachments;
+        private final long timestamp;
+        private final String sender;
+        private final byte[] groupId;
+        private final String message;
+        private final List<String> attachments;
 
         public MessageReceived(String objectpath, long timestamp, String sender, byte[] groupId, String message, List<String> attachments) {
             this.timestamp = timestamp;
@@ -64,8 +64,8 @@ public interface Signal {
     }
 
     class ReceiptReceived {
-        private long timestamp;
-        private String sender;
+        private final long timestamp;
+        private final String sender;
 
         public ReceiptReceived(String objectpath, long timestamp, String sender) {
             this.timestamp = timestamp;

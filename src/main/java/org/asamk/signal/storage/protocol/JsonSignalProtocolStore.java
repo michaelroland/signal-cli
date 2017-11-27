@@ -19,24 +19,24 @@ import java.util.Map;
 public class JsonSignalProtocolStore implements SignalProtocolStore {
 
     @JsonProperty("preKeys")
-    @JsonDeserialize(using = JsonPreKeyStore.JsonPreKeyStoreDeserializer.class)
-    @JsonSerialize(using = JsonPreKeyStore.JsonPreKeyStoreSerializer.class)
-    protected JsonPreKeyStore preKeyStore;
+    @JsonDeserialize(using = JsonPreKeyStore.Deserializer.class)
+    @JsonSerialize(using = JsonPreKeyStore.Serializer.class)
+    private JsonPreKeyStore preKeyStore;
 
     @JsonProperty("sessionStore")
-    @JsonDeserialize(using = JsonSessionStore.JsonSessionStoreDeserializer.class)
-    @JsonSerialize(using = JsonSessionStore.JsonPreKeyStoreSerializer.class)
-    protected JsonSessionStore sessionStore;
+    @JsonDeserialize(using = JsonSessionStore.Deserializer.class)
+    @JsonSerialize(using = JsonSessionStore.Serializer.class)
+    private JsonSessionStore sessionStore;
 
     @JsonProperty("signedPreKeyStore")
-    @JsonDeserialize(using = JsonSignedPreKeyStore.JsonSignedPreKeyStoreDeserializer.class)
-    @JsonSerialize(using = JsonSignedPreKeyStore.JsonSignedPreKeyStoreSerializer.class)
-    protected JsonSignedPreKeyStore signedPreKeyStore;
+    @JsonDeserialize(using = JsonSignedPreKeyStore.Deserializer.class)
+    @JsonSerialize(using = JsonSignedPreKeyStore.Serializer.class)
+    private JsonSignedPreKeyStore signedPreKeyStore;
 
     @JsonProperty("identityKeyStore")
-    @JsonDeserialize(using = JsonIdentityKeyStore.JsonIdentityKeyStoreDeserializer.class)
-    @JsonSerialize(using = JsonIdentityKeyStore.JsonIdentityKeyStoreSerializer.class)
-    protected JsonIdentityKeyStore identityKeyStore;
+    @JsonDeserialize(using = JsonIdentityKeyStore.Deserializer.class)
+    @JsonSerialize(using = JsonIdentityKeyStore.Serializer.class)
+    private JsonIdentityKeyStore identityKeyStore;
 
     public JsonSignalProtocolStore() {
     }

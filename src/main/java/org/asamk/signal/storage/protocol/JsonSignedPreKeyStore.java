@@ -15,7 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-class JsonSignedPreKeyStore implements SignedPreKeyStore {
+public class JsonSignedPreKeyStore implements SignedPreKeyStore {
 
     private final Map<Integer, byte[]> store = new HashMap<>();
 
@@ -71,7 +71,7 @@ class JsonSignedPreKeyStore implements SignedPreKeyStore {
         store.remove(signedPreKeyId);
     }
 
-    public static class JsonSignedPreKeyStoreDeserializer extends JsonDeserializer<JsonSignedPreKeyStore> {
+    public static class Deserializer extends JsonDeserializer<JsonSignedPreKeyStore> {
 
         @Override
         public JsonSignedPreKeyStore deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
@@ -98,7 +98,7 @@ class JsonSignedPreKeyStore implements SignedPreKeyStore {
         }
     }
 
-    public static class JsonSignedPreKeyStoreSerializer extends JsonSerializer<JsonSignedPreKeyStore> {
+    public static class Serializer extends JsonSerializer<JsonSignedPreKeyStore> {
 
         @Override
         public void serialize(JsonSignedPreKeyStore jsonPreKeyStore, JsonGenerator json, SerializerProvider serializerProvider) throws IOException, JsonProcessingException {

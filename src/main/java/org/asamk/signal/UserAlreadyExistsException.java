@@ -1,10 +1,10 @@
 package org.asamk.signal;
 
-public class UserAlreadyExists extends Exception {
-    private String username;
-    private String fileName;
+public class UserAlreadyExistsException extends SignalProtocolException {
+    private final String username;
+    private final String fileName;
 
-    public UserAlreadyExists(String username, String fileName) {
+    public UserAlreadyExistsException(String username, String fileName) {
         this.username = username;
         this.fileName = fileName;
     }
