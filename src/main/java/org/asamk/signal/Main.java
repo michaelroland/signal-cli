@@ -711,7 +711,7 @@ public class Main {
         byte[] buffer = new byte[4096];
         long count = 0;
         int n;
-        while (-1 != (n = System.in.read(buffer))) {
+        while (-1 != (n = in.read(buffer))) {
             output.write(new String(buffer, 0, n, Charset.defaultCharset()));
             count += n;
         }
