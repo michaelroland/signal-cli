@@ -1,5 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'application'
+apply plugin: 'maven'
 apply plugin: 'eclipse'
 
 sourceCompatibility = JavaVersion.VERSION_1_7
@@ -12,9 +13,7 @@ version = '0.5.6'
 compileJava.options.encoding = 'UTF-8'
 
 repositories {
-    maven {
-        url "https://raw.github.com/AsamK/maven/master/releases/"
-    }
+    jcenter()
     mavenCentral()
 }
 
