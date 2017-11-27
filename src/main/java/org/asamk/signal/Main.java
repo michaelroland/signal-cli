@@ -524,7 +524,7 @@ public class Main {
     }
 
     private static Namespace parseArgs(String[] args) {
-        ArgumentParser parser = ArgumentParsers.newArgumentParser("signal-cli")
+        ArgumentParser parser = ArgumentParsers.newArgumentParser("signal-client")
                 .defaultHelp(true)
                 .description("Signal Command-Line Client")
                 .version(Manager.PROJECT_NAME + " " + Manager.PROJECT_VERSION);
