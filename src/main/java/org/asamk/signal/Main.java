@@ -45,6 +45,7 @@ import org.whispersystems.signalservice.internal.util.Base64;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -416,13 +417,13 @@ public class Main {
                     if (ns.get("number") == null) {
                         for (Map.Entry<String, List<JsonIdentityKeyStore.Identity>> keys : m.getIdentities().entrySet()) {
                             for (JsonIdentityKeyStore.Identity id : keys.getValue()) {
-                                printIdentityFingerprint(m, keys.getKey(), id);
+                                printIdentityFingerprint(System.out, m, keys.getKey(), id);
                             }
                         }
                     } else {
                         String number = ns.getString("number");
                         for (JsonIdentityKeyStore.Identity id : m.getIdentities(number)) {
-                            printIdentityFingerprint(m, number, id);
+                            printIdentityFingerprint(System.out, m, number, id);
                         }
                     }
                     break;
@@ -441,7 +442,7 @@ public class Main {
                     } else {
                         String fingerprint = ns.getString("verified_fingerprint");
                         if (fingerprint != null) {
-                            fingerprint = fingerprint.replaceAll(" ", "");
+                            fingerprint = fingerprint.replaceAll("[\\s:_-]+", "");
                             switch (fingerprint.length()) {
                                 case 66:
                                     byte[] fingerprintBytes;
@@ -463,11 +464,11 @@ public class Main {
                                     }
                                     break;
                                 default:
-                                    System.err.println("Fingerprint has invalid format, either specify the old hex fingerprint or the new safety number");
+                                    System.err.println("Fingerprint has invalid format, either specify the safety number or fingerprint");
                                     return EXIT_ERROR_USER;
                             }
                         } else {
-                            System.err.println("You need to specify the fingerprint you have verified with -v FINGERPRINT");
+                            System.err.println("You need to specify the safety number or fingerprint you have verified with -v SAFETY_NUMBER");
                             return EXIT_ERROR_USER;
                         }
                     }
@@ -479,10 +480,15 @@ public class Main {
         }
     }
 
-    private static void printIdentityFingerprint(Manager m, String theirUsername, JsonIdentityKeyStore.Identity theirId) {
-        String digits = formatSafetyNumber(m.computeSafetyNumber(theirUsername, theirId.getIdentityKey()));
-        System.out.println(String.format("%s: %s Added: %s Fingerprint: %s Safety Number: %s", theirUsername,
-                theirId.getTrustLevel(), theirId.getDateAdded(), Hex.toStringCondensed(theirId.getFingerprint()), digits));
+    private static void printIdentityFingerprint(PrintStream out, Manager m, String theirUsername, JsonIdentityKeyStore.Identity theirId) {
+        out.println("===============================================================================");
+        out.println(theirUsername);
+        out.println("Trust level:   " + theirId.getTrustLevel());
+        out.println("Safety Number: " + formatSafetyNumber(m.computeSafetyNumber(theirUsername, theirId.getIdentityKey())));
+        out.println("Fingerprint:   " + Hex.toStringCondensed(theirId.getFingerprint()));
+        out.println("Added:         " + formatDate(theirId.getDateAdded()));
+        out.println("===============================================================================");
+        out.println("");
     }
 
     private static void printGroup(GroupInfo group, boolean detailed) {
@@ -640,10 +646,11 @@ public class Main {
                 .required(true);
         MutuallyExclusiveGroup mutTrust = parserTrust.addMutuallyExclusiveGroup();
         mutTrust.addArgument("-a", "--trust-all-known-keys")
-                .help("Trust all known keys of this user, only use this for testing")
+                .help("Trust all known keys for this user; ONLY USE THIS FOR TESTING!")
                 .action(Arguments.storeTrue());
-        mutTrust.addArgument("-v", "--verified-fingerprint")
-                .help("Specify the fingerprint of the key, only use this option if you have verified the fingerprint");
+        mutTrust.addArgument("-v", "--verified-fingerprint", "--verified-safetynumber")
+                .metavar("SAFETY_NUMBER")
+                .help("Specify the safety number or fingerprint of the key to trust; only use this option if you have verified the user's safety number/fingerprint");
 
         Subparser parserReceive = subparsers.addParser("receive")
                 .help("Receive messages");
@@ -745,9 +752,21 @@ public class Main {
                 if (exception != null) {
                     if (exception instanceof org.whispersystems.libsignal.UntrustedIdentityException) {
                         org.whispersystems.libsignal.UntrustedIdentityException e = (org.whispersystems.libsignal.UntrustedIdentityException) exception;
-                        System.out.println("The user's key is untrusted, either the user has reinstalled Signal or a third party sent this message.");
-                        System.out.println("Use 'signal-client -u " + m.getUsername() + " listIdentities -n " + e.getName() + "', verify the key and run 'signal-client -u " + m.getUsername() + " trust -v \"FINGER_PRINT\" " + e.getName() + "' to mark it as trusted");
-                        System.out.println("If you don't care about security, use 'signal-client -u " + m.getUsername() + " trust -a " + e.getName() + "' to trust it without verification");
+                        System.err.println("The user's key is untrusted, either the user has reinstalled Signal or a third party sent this message.");
+                        System.err.println();
+                        JsonIdentityKeyStore.Identity idToVerify = null;
+                        for (JsonIdentityKeyStore.Identity id : m.getIdentities(e.getName())) {
+                            if (id.getIdentityKey().equals(e.getUntrustedIdentity())) {
+                                idToVerify = id;
+                                break;
+                            }
+                        }
+                        if (idToVerify == null) {
+                            idToVerify = new JsonIdentityKeyStore.Identity(e.getUntrustedIdentity(), TrustLevel.UNTRUSTED);
+                        }
+                        printIdentityFingerprint(System.err, m, e.getName(), idToVerify);
+                        System.err.println("Verify the safety number and run 'signal-client -u " + m.getUsername() + " trust -v \"" + formatSafetyNumber(m.computeSafetyNumber(e.getName(), idToVerify.getIdentityKey())) + "\" " + e.getName() + "' to mark this identity as trusted.");
+                        System.err.println("Use 'signal-client -u " + m.getUsername() + " listIdentities -n " + e.getName() + "' to list all known identities for the user.");
                     } else {
                         System.out.println("Exception: " + exception.getMessage() + " (" + exception.getClass().getSimpleName() + ")");
                     }
@@ -931,8 +950,12 @@ public class Main {
 
     private static String formatTimestamp(long timestamp) {
         Date date = new Date(timestamp);
+        return timestamp + " (" + formatDate(date) + ")";
+    }
+
+    private static String formatDate(Date date) {
         final DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
         df.setTimeZone(TIMEZONE_UTC);
-        return timestamp + " (" + df.format(date) + ")";
+        return df.format(date);
     }
 }

@@ -161,7 +161,7 @@ public class JsonIdentityKeyStore implements IdentityKeyStore {
         }
     }
 
-    public class Identity {
+    public static class Identity {
         IdentityKey identityKey;
         TrustLevel trustLevel;
         Date added;
