@@ -58,6 +58,10 @@ import java.util.concurrent.TimeoutException;
 
 public class Main {
 
+    private static final int EXIT_ERROR_USER = 1;
+    private static final int EXIT_ERROR_CONFIG = 2;
+    private static final int EXIT_ERROR_REMOTE = 3;
+    
     private static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC");
     private static final String DEFAULT_CONFIG_DIR = System.getProperty("user.home") + "/.config/signal";
 
@@ -88,7 +92,7 @@ public class Main {
                     m.init();
                 } catch (IOException e) {
                     System.err.println("Error loading state file \"" + m.getFileName() + "\": " + e.getMessage());
-                    return 2;
+                    return EXIT_ERROR_CONFIG;
                 }
             }
 
@@ -101,47 +105,47 @@ public class Main {
                         m.register(ns.getBoolean("voice"));
                     } catch (IOException e) {
                         System.err.println("Request verify error: " + e.getMessage());
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
                     break;
                 case "unregister":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     try {
                         m.unregister();
                     } catch (IOException e) {
                         System.err.println("Unregister error: " + e.getMessage());
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
                     break;
                 case "updateAccount":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     try {
                         m.updateAccountAttributes();
                     } catch (IOException e) {
                         System.err.println("UpdateAccount error: " + e.getMessage());
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
                     break;
                 case "verify":
                     if (!m.userHasKeys()) {
                         System.err.println("User has no keys, first call register.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     if (m.isRegistered()) {
                         System.err.println("User registration is already verified");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     try {
                         m.verifyAccount(ns.getString("verificationCode"));
                     } catch (IOException e) {
                         System.err.println("Verify error: " + e.getMessage());
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
                     break;
                 case "link":
@@ -158,46 +162,46 @@ public class Main {
                         System.out.println("Associated with: " + m.getUsername());
                     } catch (TimeoutException e) {
                         System.err.println("Link request timed out, please try again.");
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (IOException e) {
                         System.err.println("Link request error: " + e.getMessage());
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (AssertionError e) {
                         handleAssertionError(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (InvalidKeyException e) {
                         e.printStackTrace();
-                        return 2;
+                        return EXIT_ERROR_CONFIG;
                     } catch (UserAlreadyExistsException e) {
                         System.err.println("The user " + e.getUsername() + " already exists\nDelete \"" + e.getFileName() + "\" before trying again.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     break;
                 case "addDevice":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     try {
                         m.addDeviceLink(new URI(ns.getString("uri")));
                     } catch (IOException e) {
                         e.printStackTrace();
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (InvalidKeyException e) {
                         e.printStackTrace();
-                        return 2;
+                        return EXIT_ERROR_CONFIG;
                     } catch (AssertionError e) {
                         handleAssertionError(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (URISyntaxException e) {
                         e.printStackTrace();
-                        return 2;
+                        return EXIT_ERROR_CONFIG;
                     }
                     break;
                 case "listDevices":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     try {
                         List<DeviceInfo> devices = m.getLinkedDevices();
@@ -209,20 +213,20 @@ public class Main {
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
                     break;
                 case "removeDevice":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     try {
                         int deviceId = ns.getInt("deviceId");
                         m.removeLinkedDevices(deviceId);
                     } catch (IOException e) {
                         e.printStackTrace();
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
                     break;
                 case "send":
@@ -230,19 +234,19 @@ public class Main {
                         if (ns.getList("recipient") == null) {
                             System.err.println("No recipients given");
                             System.err.println("Aborting sending.");
-                            return 1;
+                            return EXIT_ERROR_USER;
                         }
                         try {
                             ts.sendEndSessionMessage(ns.<String>getList("recipient"));
                         } catch (IOException e) {
                             handleIOException(e);
-                            return 3;
+                            return EXIT_ERROR_REMOTE;
                         } catch (EncapsulatedExceptions e) {
                             handleEncapsulatedExceptions(e);
-                            return 3;
+                            return EXIT_ERROR_REMOTE;
                         } catch (AssertionError e) {
                             handleAssertionError(e);
-                            return 1;
+                            return EXIT_ERROR_USER;
                         }
                     } else {
                         String messageText = ns.getString("message");
@@ -252,7 +256,7 @@ public class Main {
                             } catch (IOException e) {
                                 System.err.println("Failed to read message from stdin: " + e.getMessage());
                                 System.err.println("Aborting sending.");
-                                return 1;
+                                return EXIT_ERROR_USER;
                             }
                         }
 
@@ -269,23 +273,23 @@ public class Main {
                             }
                         } catch (IOException e) {
                             handleIOException(e);
-                            return 3;
+                            return EXIT_ERROR_REMOTE;
                         } catch (EncapsulatedExceptions e) {
                             handleEncapsulatedExceptions(e);
-                            return 3;
+                            return EXIT_ERROR_REMOTE;
                         } catch (AssertionError e) {
                             handleAssertionError(e);
-                            return 1;
+                            return EXIT_ERROR_USER;
                         } catch (GroupNotFoundException e) {
                             handleGroupNotFoundException(e);
-                            return 1;
+                            return EXIT_ERROR_USER;
                         } catch (NotAGroupMemberException e) {
                             handleNotAGroupMemberException(e);
-                            return 1;
+                            return EXIT_ERROR_USER;
                         } catch (AttachmentInvalidException e) {
                             System.err.println("Failed to add attachment: " + e.getMessage());
                             System.err.println("Aborting sending.");
-                            return 1;
+                            return EXIT_ERROR_USER;
                         }
                     }
 
@@ -293,7 +297,7 @@ public class Main {
                 case "receive":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     double timeout = 5;
                     if (ns.getDouble("timeout") != null) {
@@ -310,42 +314,42 @@ public class Main {
                         m.receiveMessages((long) (timeout * 1000), TimeUnit.MILLISECONDS, returnOnTimeout, ignoreAttachments, handler);
                     } catch (IOException e) {
                         System.err.println("Error while receiving messages: " + e.getMessage());
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (AssertionError e) {
                         handleAssertionError(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     break;
                 case "quitGroup":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
 
                     try {
                         m.sendQuitGroupMessage(decodeGroupId(ns.getString("group")));
                     } catch (IOException e) {
                         handleIOException(e);
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (EncapsulatedExceptions e) {
                         handleEncapsulatedExceptions(e);
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (AssertionError e) {
                         handleAssertionError(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (GroupNotFoundException e) {
                         handleGroupNotFoundException(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (NotAGroupMemberException e) {
                         handleNotAGroupMemberException(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
 
                     break;
                 case "updateGroup":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
 
                     try {
@@ -374,27 +378,27 @@ public class Main {
                         }
                     } catch (IOException e) {
                         handleIOException(e);
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     } catch (AttachmentInvalidException e) {
                         System.err.println("Failed to add avatar attachment for group\": " + e.getMessage());
                         System.err.println("Aborting sending.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (GroupNotFoundException e) {
                         handleGroupNotFoundException(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (NotAGroupMemberException e) {
                         handleNotAGroupMemberException(e);
-                        return 1;
+                        return EXIT_ERROR_USER;
                     } catch (EncapsulatedExceptions e) {
                         handleEncapsulatedExceptions(e);
-                        return 3;
+                        return EXIT_ERROR_REMOTE;
                     }
 
                     break;
                 case "listGroups":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
 
                     List<GroupInfo> groups = m.getGroups();
@@ -407,7 +411,7 @@ public class Main {
                 case "listIdentities":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     if (ns.get("number") == null) {
                         for (Map.Entry<String, List<JsonIdentityKeyStore.Identity>> keys : m.getIdentities().entrySet()) {
@@ -425,14 +429,14 @@ public class Main {
                 case "trust":
                     if (!m.isRegistered()) {
                         System.err.println("User is not registered.");
-                        return 1;
+                        return EXIT_ERROR_USER;
                     }
                     String number = ns.getString("number");
                     if (ns.getBoolean("trust_all_known_keys")) {
                         boolean res = m.trustIdentityAllKeys(number);
                         if (!res) {
                             System.err.println("Failed to set the trust for this number, make sure the number is correct.");
-                            return 1;
+                            return EXIT_ERROR_USER;
                         }
                     } else {
                         String fingerprint = ns.getString("verified_fingerprint");
@@ -445,26 +449,26 @@ public class Main {
                                         fingerprintBytes = Hex.toByteArray(fingerprint.toLowerCase(Locale.ROOT));
                                     } catch (Exception e) {
                                         System.err.println("Failed to parse the fingerprint, make sure the fingerprint is a correctly encoded hex string without additional characters.");
-                                        return 1;
+                                        return EXIT_ERROR_USER;
                                     }
                                     if (!m.trustIdentityVerified(number, fingerprintBytes)) {
                                         System.err.println("Failed to set the trust for the fingerprint of this number, make sure the number and the fingerprint are correct.");
-                                        return 1;
+                                        return EXIT_ERROR_USER;
                                     }
                                     break;
                                 case 60:
                                     if (!m.trustIdentityVerifiedSafetyNumber(number, fingerprint)) {
                                         System.err.println("Failed to set the trust for the safety number of this phone number, make sure the phone number and the safety number are correct.");
-                                        return 1;
+                                        return EXIT_ERROR_USER;
                                     }
                                     break;
                                 default:
                                     System.err.println("Fingerprint has invalid format, either specify the old hex fingerprint or the new safety number");
-                                    return 1;
+                                    return EXIT_ERROR_USER;
                             }
                         } else {
                             System.err.println("You need to specify the fingerprint you have verified with -v FINGERPRINT");
-                            return 1;
+                            return EXIT_ERROR_USER;
                         }
                     }
                     break;
