@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    compile 'com.github.turasa:signal-service-java:2.6.11_unofficial_1'
+    compile 'com.github.turasa:signal-service-java:2.6.12_unofficial_1'
     compile 'org.bouncycastle:bcprov-jdk15on:1.58'
     compile 'net.sourceforge.argparse4j:argparse4j:0.8.1'
 }
